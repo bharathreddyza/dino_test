@@ -1,0 +1,6 @@
+i am making a robot based on the open duck mini project ,open duck mini uses a rl policy to operatethe robot , 
+that project uses the feetech serial bus servos  but i use my waveshare serial bus servos ,
+so i need to modify the open duck mini runtime code for the policy towork with my motors ,
+i have attached the folders wioth both open duck mini official runtime and waveshare official code to operate the servos 
+figure out how to open duck mini runtime operates the rl policy and how can i implement it with my servos 
+
