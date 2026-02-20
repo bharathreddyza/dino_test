@@ -8,7 +8,20 @@ except Exception:
     RustypotHWI = None
 from mini_bdx_runtime.onnx_infer import OnnxInfer
 
-from mini_bdx_runtime.raw_imu import Imu
+try:
+    from mini_bdx_runtime.raw_imu import Imu as I2CImu
+except Exception:
+    I2CImu = None
+try:
+    from mini_bdx_runtime.imu2 import Imu as UARTImu
+except Exception:
+    UARTImu = None
+try:
+    from mini_bdx_runtime.raw_imu2 import Imu as UARTImu2
+except Exception:
+    UARTImu2 = None
+if UARTImu is None and UARTImu2 is not None:
+    UARTImu = UARTImu2
 from mini_bdx_runtime.poly_reference_motion import PolyReferenceMotion
 from mini_bdx_runtime.xbox_controller import XBoxController
 from mini_bdx_runtime.feet_contacts import FeetContacts
@@ -88,7 +101,20 @@ class RLWalk:
 
         self.start()
 
-        self.imu = Imu(
+        # Choose IMU backend (i2c vs uart) based on duck_config
+        imu_backend = getattr(self.duck_config, "imu_backend", "i2c")
+        imu_class = None
+        if imu_backend == "uart" and UARTImu is not None:
+            imu_class = UARTImu
+        elif I2CImu is not None:
+            imu_class = I2CImu
+        elif UARTImu is not None:
+            imu_class = UARTImu
+
+        if imu_class is None:
+            raise RuntimeError("No IMU backend available (i2c or uart)")
+
+        self.imu = imu_class(
             sampling_freq=int(self.control_freq),
             user_pitch_bias=self.pitch_bias,
             upside_down=self.duck_config.imu_upside_down,

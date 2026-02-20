@@ -29,6 +29,9 @@
   "use_waveshare": true,
   "protocol": "scscl",
   "counts_per_pi": 1024,
+  "imu_backend": "uart",
+  "imu_serial_port": "/dev/serial0",
+  "imu_baud": 115200,
   "joint_map": {
     "left_hip_yaw": 10,
     "left_hip_roll": 11,
