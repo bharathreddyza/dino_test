@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
-        "./Open_Duck_Mini_Runtime/mini_bdx_runtime"
+        "./Open_Duck_Mini_Runtime/mini_bdx_runtime",
+        "./Open_Duck_Mini_Runtime/python"
     ]
 }
