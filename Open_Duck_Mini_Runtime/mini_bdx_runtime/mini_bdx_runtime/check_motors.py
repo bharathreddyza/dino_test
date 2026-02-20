@@ -8,15 +8,15 @@ import numpy as np
 import traceback
 import argparse
 
-from mini_bdx_runtime.duck_config import DuckConfig
+from duck_config import DuckConfig
 
 try:
-    from mini_bdx_runtime.rustypot_position_hwi import HWI as RustypotHWI
+    from rustypot_position_hwi import HWI as RustypotHWI
 except Exception:
     RustypotHWI = None
 
 try:
-    from mini_bdx_runtime.waveshare_position_hwi import WaveshareHWI
+    from waveshare_position_hwi import WaveshareHWI
 except Exception:
     WaveshareHWI = None
 
