@@ -1,27 +1,46 @@
-"""
-raw_imu.py — Basic UART test for BNO085 IMU
-"""
+# raw_imu.py
+# Raspberry Pi + BNO085 UART-RVC test
 
 import time
-import board
-import busio
-
+import serial
+import numpy as np
 from adafruit_bno08x_rvc import BNO08x_RVC
 
-def basic_uart_test():
-    uart = busio.UART(board.TX, board.RX, baudrate=115200, receiver_buffer_size=2048)
 
-    # For Raspberry Pi Python, use pyserial instead:
-    # import serial
-    # uart = serial.Serial("/dev/serial0", 115200)
+class Imu:
+    def __init__(self, sampling_freq=50):
+        self.sampling_freq = sampling_freq
 
-    imu = BNO08x_RVC(uart)
+        # Open Raspberry Pi hardware UART
+        self.uart = serial.Serial("/dev/serial0", 115200, timeout=1)
 
-    # Read a few samples
-    for i in range(10):
-        yaw, pitch, roll, x_a, y_a, z_a = imu.heading
-        print(f"[{i}] YPR: {yaw:.2f}, {pitch:.2f}, {roll:.2f} | Accel: {x_a:.2f}, {y_a:.2f}, {z_a:.2f}")
-        time.sleep(0.2)
+        # Initialize RVC mode driver
+        self.imu = BNO08x_RVC(self.uart)
+
+    def read(self):
+        yaw, pitch, roll, x_accel, y_accel, z_accel = self.imu.heading
+
+        return {
+            "yaw": yaw,
+            "pitch": pitch,
+            "roll": roll,
+            "gyro": [0, 0, 0],  # RVC mode does NOT provide gyro
+            "accelero": [x_accel, y_accel, z_accel],
+        }
+
 
 if __name__ == "__main__":
-    basic_uart_test()
+    imu = Imu(50)
+
+    while True:
+        try:
+            data = imu.read()
+            print("Yaw:", round(data["yaw"], 2),
+                  "Pitch:", round(data["pitch"], 2),
+                  "Roll:", round(data["roll"], 2))
+            print("Accel:", np.around(data["accelero"], 3))
+            print("----")
+        except Exception as e:
+            print("IMU Error:", e)
+
+        time.sleep(0.1)

@@ -1,44 +1,93 @@
-"""
-imu.py — Read orientation & acceleration from BNO085 via UART
-"""
+# imu.py
+# Raspberry Pi + BNO085 UART-RVC threaded version
 
 import time
-import board
-import busio
-
+import serial
+import numpy as np
+from queue import Queue
+from threading import Thread
 from adafruit_bno08x_rvc import BNO08x_RVC
 
-class IMU:
-    def __init__(self, uart_port=None, baudrate=115200):
-        """
-        Initialize the IMU over UART.
-        """
-        # If using CircuitPython-style busio:
-        self.uart = busio.UART(board.TX, board.RX, baudrate=baudrate, receiver_buffer_size=2048)
 
-        # If using Raspberry Pi Python with pyserial, comment out above and
-        # uncomment below:
-        # import serial
-        # self.uart = serial.Serial(uart_port or "/dev/serial0", baudrate)
+class Imu:
+    def __init__(
+        self,
+        sampling_freq=50,
+        user_pitch_bias=0,
+        upside_down=True,
+    ):
+        self.sampling_freq = sampling_freq
+        self.user_pitch_bias = user_pitch_bias
+        self.upside_down = upside_down
 
-        self._sensor = BNO08x_RVC(self.uart)
+        # Open hardware UART
+        self.uart = serial.Serial("/dev/serial0", 115200, timeout=1)
 
-    def read(self):
-        """
-        Returns yaw, pitch, roll (degrees) + acceleration (m/s^2).
-        """
-        yaw, pitch, roll, x_accel, y_accel, z_accel = self._sensor.heading
-        return {
-            "yaw": yaw,
-            "pitch": pitch,
-            "roll": roll,
-            "accel": (x_accel, y_accel, z_accel),
+        # Create IMU instance
+        self.imu = BNO08x_RVC(self.uart)
+
+        self.last_imu_data = {
+            "yaw": 0,
+            "pitch": 0,
+            "roll": 0,
+            "accelero": [0, 0, 0],
         }
 
+        self.imu_queue = Queue(maxsize=1)
+
+        Thread(target=self.imu_worker, daemon=True).start()
+
+    def imu_worker(self):
+        while True:
+            start = time.time()
+
+            try:
+                yaw, pitch, roll, x_accel, y_accel, z_accel = self.imu.heading
+
+                # Apply pitch bias
+                pitch -= self.user_pitch_bias
+
+                if self.upside_down:
+                    pitch = -pitch
+                    roll = -roll
+
+                data = {
+                    "yaw": yaw,
+                    "pitch": pitch,
+                    "roll": roll,
+                    "accelero": [x_accel, y_accel, z_accel],
+                }
+
+                if self.imu_queue.full():
+                    self.imu_queue.get()
+
+                self.imu_queue.put(data)
+
+            except Exception as e:
+                print("[IMU ERROR]:", e)
+
+            elapsed = time.time() - start
+            time.sleep(max(0, 1 / self.sampling_freq - elapsed))
+
+    def get_data(self):
+        try:
+            self.last_imu_data = self.imu_queue.get(False)
+        except:
+            pass
+
+        return self.last_imu_data
+
+
 if __name__ == "__main__":
-    imu = IMU()
+    imu = Imu(50)
+
     while True:
-        data = imu.read()
-        print(f"Yaw: {data['yaw']:.2f}, Pitch: {data['pitch']:.2f}, Roll: {data['roll']:.2f}")
-        print(f"Acceleration: X={data['accel'][0]:.2f} Y={data['accel'][1]:.2f} Z={data['accel'][2]:.2f}")
+        data = imu.get_data()
+        print(
+            f"Yaw: {data['yaw']:.2f}, "
+            f"Pitch: {data['pitch']:.2f}, "
+            f"Roll: {data['roll']:.2f}"
+        )
+        print("Accel:", np.around(data["accelero"], 3))
+        print("----")
         time.sleep(0.1)
